@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   labeler:
-    if: github.repository == 'pypi/warehouse'
+    if: github.repository == 'omkar-334/warehouse'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213 # v6.1.0
