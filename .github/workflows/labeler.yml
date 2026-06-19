@@ -1,8 +1,9 @@
 name: Pull Request Labeler
 
-on:
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
+on: # zizmor: ignore[dangerous-triggers] Label fork PRs with a trusted follow-up; no contributor code is checked out or run.
+  workflow_run:
+    workflows: ["Pull Request Labeler Trigger"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -10,6 +11,7 @@ on:
         required: true
 
 permissions:
+  actions: read
   contents: read
   pull-requests: write
 
@@ -19,10 +21,28 @@ jobs:
       github.repository == 'omkar-334/warehouse' &&
       (
         github.event_name == 'workflow_dispatch' ||
-        github.event.pull_request.head.repo.full_name == github.repository
+        (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'pull_request'
+        )
       )
     runs-on: ubuntu-24.04
     steps:
+      - name: Download PR number
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: pr-number
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read PR number
+        if: github.event_name == 'workflow_run'
+        id: pr
+        shell: bash
+        run: |
+          number="$(cat ./number)"
+          [[ "$number" =~ ^[1-9][0-9]*$ ]] || { echo "Refusing invalid PR number"; exit 1; }
+          echo "number=$number" >> "$GITHUB_OUTPUT"
       - uses: actions/labeler@f27b608878404679385c85cfa523b85ccb86e213 # v6.1.0
         with:
-          pr-number: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
+          pr-number: ${{ github.event.inputs.pr_number || steps.pr.outputs.number }}
